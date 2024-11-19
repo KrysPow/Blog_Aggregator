@@ -40,9 +40,9 @@ func Read() (Config, error) {
 	return conf, nil
 }
 
-func SetUser(username string, conf Config) error {
-	conf.CurrentUserName = username
-	write(conf)
+func (c *Config) SetUser(username string) error {
+	c.CurrentUserName = username
+	write(*c)
 	return nil
 }
 
