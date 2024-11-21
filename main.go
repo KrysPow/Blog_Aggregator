@@ -1,11 +1,15 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/KrysPow/go_blog_aggregator/internal/commands"
 	"github.com/KrysPow/go_blog_aggregator/internal/config"
+	"github.com/KrysPow/go_blog_aggregator/internal/database"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -14,7 +18,13 @@ func main() {
 		fmt.Println(err)
 	}
 
+	db, err := sql.Open("postgres", conf.DBurl)
+	if err != nil {
+		log.Fatal("Could not connect to database: ", err)
+	}
+
 	state := commands.State{
+		DB:     database.New(db),
 		Config: &conf,
 	}
 
@@ -23,6 +33,7 @@ func main() {
 	}
 
 	cmds.Register("login", commands.HandlerLogin)
+	cmds.Register("register", commands.HandlerRegister)
 
 	args := os.Args
 	if len(args) < 2 {

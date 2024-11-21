@@ -1,13 +1,20 @@
 package commands
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	"github.com/KrysPow/go_blog_aggregator/internal/config"
+	"github.com/KrysPow/go_blog_aggregator/internal/database"
+	"github.com/google/uuid"
 )
 
 type State struct {
+	DB     *database.Queries
 	Config *config.Config
 }
 
@@ -22,12 +29,52 @@ func HandlerLogin(s *State, cmd Command) error {
 		os.Exit(1)
 	}
 
-	err := s.Config.SetUser(cmd.Args[0])
+	_, err := s.DB.GetUser(context.Background(), sql.NullString{String: cmd.Args[0], Valid: true})
+	if err != nil {
+		log.Fatal("User does not exist in the database")
+	}
+
+	err = s.Config.SetUser(cmd.Args[0])
 	if err != nil {
 		return err
 	}
 
 	fmt.Printf("User has been set to %s\n", cmd.Args[0])
+	return nil
+}
+
+func HandlerRegister(s *State, cmd Command) error {
+	if len(cmd.Args) == 0 {
+		fmt.Errorf("login expects an argument, the username")
+		os.Exit(1)
+	}
+
+	usr_param := database.CreateUserParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name: sql.NullString{
+			String: cmd.Args[0],
+			Valid:  true, // Indicating the value is NOT null.
+		},
+	}
+
+	_, err := s.DB.CreateUser(context.Background(), usr_param)
+	if err != nil {
+		log.Fatal("User could not be created, ", err)
+	}
+
+	_, err = s.DB.GetUser(context.Background(), usr_param.Name)
+	if err != nil {
+		log.Fatal("User already exists!")
+	}
+
+	err = s.Config.SetUser(cmd.Args[0])
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("User %s has been registered\n", cmd.Args[0])
 	return nil
 }
 
