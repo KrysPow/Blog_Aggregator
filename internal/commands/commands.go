@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/KrysPow/go_blog_aggregator/internal/config"
@@ -25,8 +24,7 @@ type Command struct {
 
 func HandlerLogin(s *State, cmd Command) error {
 	if len(cmd.Args) == 0 {
-		fmt.Errorf("login expects an argument, the username")
-		os.Exit(1)
+		log.Fatal("login expects an argument, the username")
 	}
 
 	_, err := s.DB.GetUser(context.Background(), sql.NullString{String: cmd.Args[0], Valid: true})
@@ -45,8 +43,7 @@ func HandlerLogin(s *State, cmd Command) error {
 
 func HandlerRegister(s *State, cmd Command) error {
 	if len(cmd.Args) == 0 {
-		fmt.Errorf("login expects an argument, the username")
-		os.Exit(1)
+		log.Fatal("login expects an argument, the username")
 	}
 
 	usr_param := database.CreateUserParams{
@@ -75,6 +72,29 @@ func HandlerRegister(s *State, cmd Command) error {
 	}
 
 	fmt.Printf("User %s has been registered\n", cmd.Args[0])
+	return nil
+}
+
+func HandlerReset(s *State, cmd Command) error {
+	s.DB.DeleteUsers(context.Background())
+	fmt.Println("All users have been DELETED!")
+	return nil
+}
+
+func HandlerUsers(s *State, cmd Command) error {
+	users, err := s.DB.GetUsers(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, user := range users {
+		if user.Name.String == s.Config.CurrentUserName {
+			fmt.Printf("* %s (current)\n", user.Name.String)
+		} else {
+			fmt.Println("* " + user.Name.String)
+		}
+
+	}
 	return nil
 }
 
