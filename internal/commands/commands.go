@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -27,7 +26,7 @@ func HandlerLogin(s *State, cmd Command) error {
 		log.Fatal("login expects an argument, the username")
 	}
 
-	_, err := s.DB.GetUser(context.Background(), sql.NullString{String: cmd.Args[0], Valid: true})
+	_, err := s.DB.GetUser(context.Background(), cmd.Args[0])
 	if err != nil {
 		log.Fatal("User does not exist in the database")
 	}
@@ -50,10 +49,7 @@ func HandlerRegister(s *State, cmd Command) error {
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		Name: sql.NullString{
-			String: cmd.Args[0],
-			Valid:  true, // Indicating the value is NOT null.
-		},
+		Name:      cmd.Args[0],
 	}
 
 	_, err := s.DB.CreateUser(context.Background(), usr_param)
@@ -88,10 +84,10 @@ func HandlerUsers(s *State, cmd Command) error {
 	}
 
 	for _, user := range users {
-		if user.Name.String == s.Config.CurrentUserName {
-			fmt.Printf("* %s (current)\n", user.Name.String)
+		if user.Name == s.Config.CurrentUserName {
+			fmt.Printf("* %s (current)\n", user.Name)
 		} else {
-			fmt.Println("* " + user.Name.String)
+			fmt.Println("* " + user.Name)
 		}
 
 	}
@@ -115,7 +111,7 @@ func HandlerAddFeed(s *State, cmd Command) error {
 		log.Fatal("You need 2 arguments, the name and the url")
 	}
 
-	cur_user, err := s.DB.GetUser(context.Background(), sql.NullString{String: s.Config.CurrentUserName, Valid: true})
+	cur_user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,12 +124,89 @@ func HandlerAddFeed(s *State, cmd Command) error {
 		Url:       cmd.Args[1],
 		UserID:    cur_user.ID,
 	})
+	if err != nil {
+		log.Fatal("Feed could not be created: ", err)
+	}
 
+	_, err = s.DB.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    cur_user.ID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		log.Fatal("Feed follow could not be created: ", err)
+	}
+
+	fmt.Println(feed)
+	return nil
+}
+
+func HandlerFeeds(s *State, cmd Command) error {
+	feeds_data, err := s.DB.GetFeedsNamesUrlsUserName(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(feed)
+	for _, feed := range feeds_data {
+		fmt.Println(feed.Name)
+		fmt.Println(feed.Url)
+		fmt.Println(feed.Name_2.String)
+	}
+	return nil
+}
+
+func HandlerFollow(s *State, cmd Command) error {
+	if len(cmd.Args) != 1 {
+		log.Fatal("Follow need one argument, the URL")
+	}
+
+	feed, err := s.DB.GetFeedByUrl(context.Background(), cmd.Args[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(feed.Url)
+	cur_user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	feed_follow, err := s.DB.CreateFeedFollow(context.Background(),
+		database.CreateFeedFollowParams{
+			ID:        uuid.New(),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+			UserID:    cur_user.ID,
+			FeedID:    feed.ID,
+		})
+	if err != nil {
+		log.Fatal("feed_follow error: ", err)
+	}
+
+	fmt.Println(feed_follow.FeedName)
+	fmt.Println(feed_follow.UserName)
+	return nil
+}
+
+func HandlerFollowing(s *State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		log.Fatal("Following does not need any argument")
+	}
+
+	cur_user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
+	if err != nil {
+		log.Fatal("Could not get user: ", err)
+	}
+
+	feeds, err := s.DB.GetFeedFollowForUser(context.Background(), cur_user.ID)
+	if err != nil {
+		log.Fatal("Feeds could not be querried: ", err)
+	}
+
+	for _, feed := range feeds {
+		fmt.Println(feed.FeedName)
+	}
 	return nil
 }
 
