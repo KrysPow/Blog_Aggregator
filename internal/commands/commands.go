@@ -195,6 +195,22 @@ func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	return nil
 }
 
+func HandlerUnfollow(s *State, cmd Command, user database.User) error {
+	feed, err := s.DB.GetFeedByUrl(context.Background(), cmd.Args[0])
+	if err != nil {
+		log.Fatal("Could not get feed by url: ", err)
+	}
+
+	err = s.DB.DeleteFeedFollowByFeedAndUser(context.Background(), database.DeleteFeedFollowByFeedAndUserParams{
+		FeedID: feed.ID,
+		UserID: user.ID,
+	})
+	if err != nil {
+		log.Fatal("Deletion failed: ", err)
+	}
+	return nil
+}
+
 type Commands struct {
 	CommandMap map[string]func(*State, Command) error
 }
