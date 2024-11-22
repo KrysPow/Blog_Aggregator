@@ -106,14 +106,9 @@ func HandlerAgg(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerAddFeed(s *State, cmd Command) error {
+func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 2 {
 		log.Fatal("You need 2 arguments, the name and the url")
-	}
-
-	cur_user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	feed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
@@ -122,7 +117,7 @@ func HandlerAddFeed(s *State, cmd Command) error {
 		UpdatedAt: time.Now(),
 		Name:      cmd.Args[0],
 		Url:       cmd.Args[1],
-		UserID:    cur_user.ID,
+		UserID:    user.ID,
 	})
 	if err != nil {
 		log.Fatal("Feed could not be created: ", err)
@@ -132,7 +127,7 @@ func HandlerAddFeed(s *State, cmd Command) error {
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
-		UserID:    cur_user.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	})
 	if err != nil {
@@ -157,17 +152,12 @@ func HandlerFeeds(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollow(s *State, cmd Command) error {
+func HandlerFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		log.Fatal("Follow need one argument, the URL")
 	}
 
 	feed, err := s.DB.GetFeedByUrl(context.Background(), cmd.Args[0])
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(feed.Url)
-	cur_user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -177,7 +167,7 @@ func HandlerFollow(s *State, cmd Command) error {
 			ID:        uuid.New(),
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
-			UserID:    cur_user.ID,
+			UserID:    user.ID,
 			FeedID:    feed.ID,
 		})
 	if err != nil {
@@ -189,17 +179,12 @@ func HandlerFollow(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollowing(s *State, cmd Command) error {
+func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 0 {
 		log.Fatal("Following does not need any argument")
 	}
 
-	cur_user, err := s.DB.GetUser(context.Background(), s.Config.CurrentUserName)
-	if err != nil {
-		log.Fatal("Could not get user: ", err)
-	}
-
-	feeds, err := s.DB.GetFeedFollowForUser(context.Background(), cur_user.ID)
+	feeds, err := s.DB.GetFeedFollowForUser(context.Background(), user.ID)
 	if err != nil {
 		log.Fatal("Feeds could not be querried: ", err)
 	}
