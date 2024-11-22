@@ -98,6 +98,45 @@ func HandlerUsers(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerAgg(s *State, cmd Command) error {
+	url := "https://www.wagslane.dev/index.xml"
+
+	rss_feed, err := FetchFeed(context.Background(), url)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Print(*rss_feed)
+	return nil
+}
+
+func HandlerAddFeed(s *State, cmd Command) error {
+	if len(cmd.Args) != 2 {
+		log.Fatal("You need 2 arguments, the name and the url")
+	}
+
+	cur_user, err := s.DB.GetUser(context.Background(), sql.NullString{String: s.Config.CurrentUserName, Valid: true})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	feed, err := s.DB.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.Args[0],
+		Url:       cmd.Args[1],
+		UserID:    cur_user.ID,
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(feed)
+	return nil
+}
+
 type Commands struct {
 	CommandMap map[string]func(*State, Command) error
 }
