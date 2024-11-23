@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/KrysPow/go_blog_aggregator/internal/config"
@@ -235,8 +236,47 @@ func scrapeFeeds(s *State) {
 		log.Fatal("Fetching of rss feed went wrong: ", err)
 	}
 	for _, item := range rss_feed.Channel.Item {
-		fmt.Println(item.Title)
+		var descr sql.NullString
+		if item.Description == "" {
+			descr = sql.NullString{Valid: false}
+		} else {
+			descr = sql.NullString{String: item.Description, Valid: true}
+		}
+
+		pubdate, _ := time.Parse(time.RFC1123, item.PubDate)
+
+		_ = s.DB.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       item.Title,
+			Url:         item.Link,
+			Description: descr,
+			PublishedAt: pubdate,
+			FeedID:      next_feed.ID,
+		})
 	}
+}
+
+func HandlerBrowse(s *State, cmd Command, user database.User) error {
+	var limit int32
+	if len(cmd.Args) == 0 {
+		limit = 2
+	} else if lim, err := strconv.Atoi(cmd.Args[0]); err == nil {
+		limit = int32(lim)
+	} else {
+		limit = 2
+	}
+
+	posts, err := s.DB.GetPostsForUser(context.Background(), database.GetPostsForUserParams{Name: user.Name, Limit: limit})
+	if err != nil {
+		log.Fatal("Problems getting posts: ", err)
+	}
+
+	for _, post := range posts {
+		fmt.Println(post.Title)
+	}
+	return nil
 }
 
 type Commands struct {
