@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -91,18 +92,6 @@ func HandlerUsers(s *State, cmd Command) error {
 		}
 
 	}
-	return nil
-}
-
-func HandlerAgg(s *State, cmd Command) error {
-	url := "https://www.wagslane.dev/index.xml"
-
-	rss_feed, err := FetchFeed(context.Background(), url)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Print(*rss_feed)
 	return nil
 }
 
@@ -209,6 +198,45 @@ func HandlerUnfollow(s *State, cmd Command, user database.User) error {
 		log.Fatal("Deletion failed: ", err)
 	}
 	return nil
+}
+
+func HandlerAgg(s *State, cmd Command) error {
+	if len(cmd.Args) != 1 {
+		log.Fatal("You need to give an time interval")
+	}
+	time_between_req, err := time.ParseDuration(cmd.Args[0])
+	if err != nil {
+		log.Fatal("Time between request could not be paresed: ", err)
+	}
+	fmt.Println("Collecting feeds every ", cmd.Args[0])
+
+	ticker := time.NewTicker(time_between_req)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
+}
+
+func scrapeFeeds(s *State) {
+	next_feed, err := s.DB.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		log.Fatal("Next feed could not be querried: ", err)
+	}
+
+	err = s.DB.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
+		LastFetchedAt: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true},
+		ID: next_feed.ID})
+	if err != nil {
+		log.Fatal("Marking of feed went wrong: ", err)
+	}
+	rss_feed, err := FetchFeed(context.Background(), next_feed.Url)
+	if err != nil {
+		log.Fatal("Fetching of rss feed went wrong: ", err)
+	}
+	for _, item := range rss_feed.Channel.Item {
+		fmt.Println(item.Title)
+	}
 }
 
 type Commands struct {
